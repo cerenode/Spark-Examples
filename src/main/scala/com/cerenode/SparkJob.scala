@@ -10,7 +10,10 @@ trait SparkJob {
       .master("local[*]")
       .getOrCreate()
 
-     run(spark, args)
+    val sc = spark.sparkContext
+    sc.setLogLevel("ERROR")
+
+    run(spark, args)
   }
 
   def run(spark: SparkSession, args: Array[String])

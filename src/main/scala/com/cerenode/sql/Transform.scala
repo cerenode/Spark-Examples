@@ -1,0 +1,46 @@
+package com.cerenode.sql
+
+import com.cerenode.SparkJob
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+
+object Transform extends SparkJob {
+
+  override def appName: String = "Transforming columns using UDF"
+
+  override def run(spark: SparkSession, args: Array[String]): Unit = {
+    import spark.implicits._
+
+    // create an RDD with some data
+    val custs = Seq(
+      Cust(1, "Widget Co", 120000.00, 0.00, "AZ"),
+      Cust(2, "Acme Widgets", 410500.00, 500.00, "CA"),
+      Cust(3, "Widgetry", 410500.00, 200.00, "CA"),
+      Cust(4, "Widgets R Us", 410500.00, 0.0, "CA"),
+      Cust(5, "Ye Olde Widgete", 500.00, 0.0, "MA")
+    )
+    val customerDF = spark.sparkContext.parallelize(custs, 4).toDF()
+
+    // the original DataFrame
+    customerDF.show()
+
+    // a trivial UDF
+    val myFunc = udf {x: Double => x + 1}
+
+    // get the columns, having applied the UDF to the "discount" column and leaving the others as they were
+    val colNames = customerDF.columns.toList
+    println(colNames)
+    val cols = colNames.map(cName => customerDF.col(cName))
+    cols foreach println
+    val theColumn = customerDF("discount")
+    // I'd like to find a "better" way to match the column but this works.
+    // Use as() to give the column a new name just because we can!
+    val mappedCols = cols.map(c => if (c.toString() == theColumn.toString()) myFunc(c).as("transformed") else c)
+    mappedCols foreach println
+
+    // use select() to produce the new DataFrame
+    val newDF = customerDF.select(mappedCols:_*)
+    newDF.show()
+  }
+
+}
